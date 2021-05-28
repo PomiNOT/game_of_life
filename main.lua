@@ -8,29 +8,29 @@ function love.load()
   camera = Camera(0, 0)
   grid = Grid()
   play = false
-  c = cron.every(0.05, function()
+  c = cron.every(0.01, function()
     if play then
       grid:update()
     end
   end)
 
-  love.window.setFullscreen(true)
   love.window.setTitle("Conway's Game of Life")
 end
 
 
 function love.update(dt)
   c:update(dt)
-
-  if love.mouse.isDown(1) then
-    local cellX, cellY = mouseHoverCell()
-    grid:setStatus(cellX, cellY, 1)
-  end
+  love.window.setTitle(string.format("Conway's Game of Life (FPS: %d)", love.timer.getFPS()))
 end
 
 function love.mousemoved(x, y, dx, dy)
   if love.mouse.isDown(1) and love.keyboard.isDown("lctrl") then
     camera:move(-dx / zoom, -dy / zoom)
+  end
+
+  if love.mouse.isDown(1) then
+    local cellX, cellY = mouseHoverCell()
+    grid:setStatus(cellX, cellY, 1)
   end
 end
 
@@ -83,7 +83,9 @@ function drawGrid()
 end
 
 function drawCells()
-  for id, _ in pairs(grid:getAlives()) do
+  local alives = grid:getAlives()
+
+  for id, _ in pairs(alives) do
     local coord = IDtoCoord(id)
     local x, y = coord.x * squareSize, coord.y * squareSize
     love.graphics.rectangle("fill", x, y, squareSize, squareSize)
@@ -96,7 +98,7 @@ function mouseHoverCell()
 end
 
 function love.draw()
-  love.graphics.setBackgroundColor(0.8, 0.8, 0.8)
+  love.graphics.setBackgroundColor(0.2, 0.2, 0.2)
 
   camera:zoomTo(zoom)
 
@@ -108,9 +110,11 @@ function love.draw()
   camera:attach()
     love.graphics.setColor(0, 0, 0, 0.5)
     drawGrid()
+
+    love.graphics.setColor(1, 0, 0, 0.5)
     drawCells()
 
-    love.graphics.setColor(0, 0, 0, 0.2)
+    love.graphics.setColor(0, 0, 0, 0.8)
     love.graphics.rectangle(
       "fill",
       cellX * squareSize, cellY * squareSize,

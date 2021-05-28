@@ -2,22 +2,6 @@ require("class")
 
 local Grid = class()
 
---http://lua-users.org/wiki/CopyTable
-function deepcopy(orig)
-  local orig_type = type(orig)
-  local copy
-  if orig_type == 'table' then
-      copy = {}
-      for orig_key, orig_value in next, orig, nil do
-          copy[deepcopy(orig_key)] = deepcopy(orig_value)
-      end
-      setmetatable(copy, deepcopy(getmetatable(orig)))
-  else -- number, string, boolean, etc
-      copy = orig
-  end
-  return copy
-end
-
 --https://stackoverflow.com/questions/1426954/split-string-in-lua
 function split(inputstr, sep)
   if sep == nil then
@@ -32,6 +16,10 @@ end
 
 function Grid:init()
   self.gridTable = {}
+  self.bounds = {
+    x = 256,
+    y = 256
+  }
 end
 
 function coordToID(x, y)
@@ -70,46 +58,37 @@ end
 function Grid:getAliveNeighborsCount(x, y)
   local count = 0
 
-  for _, coord in pairs(self:getSurroundingCoords(x, y)) do
-    count = count + self:getStatus(coord.x, coord.y)
+  for i = -1,1 do
+    for j = -1,1 do
+      local nx, ny = x + j, y + i
+      if nx ~= x or ny ~= y then
+        count = count + self:getStatus(nx, ny)
+      end
+    end
   end
 
   return count
 end
 
-function Grid:getSurroundingCoords(x, y)
-  local coords = {}
-  
-  --Middle row
-  table.insert(coords, { x = x - 1, y = y })
-  table.insert(coords, { x = x + 1, y = y })
-
-  --Top row
-  table.insert(coords, { x = x - 1, y = y + 1 })
-  table.insert(coords, { x = x, y = y + 1 })
-  table.insert(coords, { x = x + 1, y = y + 1 })
-
-  --Bottom row
-  table.insert(coords, { x = x - 1, y = y - 1})
-  table.insert(coords, { x = x, y = y - 1})
-  table.insert(coords, { x = x + 1, y = y - 1 })
-
-  return coords
-end
-
 function Grid:update()
-  local state = deepcopy(self)
+  local changes = {}
 
-  for id, _ in pairs(state:getAlives()) do
+  for id, _ in pairs(self:getAlives()) do
     local coord = IDtoCoord(id)
-    local alives = state:getAliveNeighborsCount(coord.x, coord.y)
+    local alives = self:getAliveNeighborsCount(coord.x, coord.y)
 
     --Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-    for _, _coord in pairs(state:getSurroundingCoords(coord.x, coord.y)) do
-      local _alives = state:getAliveNeighborsCount(_coord.x, _coord.y)
-      
-      if _alives == 3 then
-        self:setStatus(_coord.x, _coord.y, 1)
+    for i = -1,1 do
+      for j = -1,1 do
+        local nx, ny = coord.x + j, coord.y + i
+
+        if nx ~= coord.x or ny ~= coord.y then
+          local _alives = self:getAliveNeighborsCount(nx, ny)
+        
+          if _alives == 3 then
+            table.insert(changes, { coord = { x = nx, y = ny }, action = "mark_alive" })
+          end
+        end
       end
     end
 
@@ -117,7 +96,19 @@ function Grid:update()
     --Any live cell with two or three live neighbours lives on to the next generation.
     --Any live cell with more than three live neighbours dies, as if by overpopulation.
     if alives < 2 or alives > 3 then
-      self:setStatus(coord.x, coord.y, 0)
+      table.insert(changes, { coord = coord, action = "mark_dead" })
+    end
+
+    if math.abs(coord.x) > self.bounds.x or math.abs(coord.y) > self.bounds.y then
+      table.insert(changes, { coord = coord, action = "mark_dead" })
+    end
+  end
+
+  for _, change in pairs(changes) do
+    if change.action == "mark_alive" then
+      self:setStatus(change.coord.x, change.coord.y, 1)
+    else
+      self:setStatus(change.coord.x, change.coord.y, 0)
     end
   end
 end

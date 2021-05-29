@@ -3,32 +3,33 @@ local Grid = require("grid")
 local cron = require("cron")
 
 function love.load()
-  squareSize = 50
+  squareSize = 100
   zoom = 1
   camera = Camera(0, 0)
   grid = Grid()
   play = false
+  generation = 0
   c = cron.every(0.01, function()
     if play then
       grid:update()
+      generation = generation + 1
     end
   end)
 
-  love.window.setTitle("Conway's Game of Life")
+  love.window.setTitle("Life")
+  love.window.setMode(800, 600, { resizable = true, vsync = 0 })
 end
 
 
 function love.update(dt)
   c:update(dt)
-  love.window.setTitle(string.format("Conway's Game of Life (FPS: %d)", love.timer.getFPS()))
+  love.window.setTitle(string.format("Life (FPS: %d) (Gen: %d)", love.timer.getFPS(), generation))
 end
 
 function love.mousemoved(x, y, dx, dy)
   if love.mouse.isDown(1) and love.keyboard.isDown("lctrl") then
     camera:move(-dx / zoom, -dy / zoom)
-  end
-
-  if love.mouse.isDown(1) then
+  elseif love.mouse.isDown(1) then
     local cellX, cellY = mouseHoverCell()
     grid:setStatus(cellX, cellY, 1)
   end
@@ -41,12 +42,19 @@ function love.mousepressed(x, y, btn)
 end
 
 function love.wheelmoved(x, y)
+  local mx0, my0 = camera:mousePosition()
+
   if y > 0 then
     zoom = zoom + 0.05
   else
     zoom = zoom - 0.05
     if zoom < 0.05 then zoom = 0.05 end
   end
+  camera:zoomTo(zoom)
+
+  local mx1, my1 = camera:mousePosition()
+
+  camera:move(-(mx1 - mx0), -(my1 - my0))
 end
 
 function drawGrid()
@@ -88,6 +96,7 @@ function drawCells()
   for id, _ in pairs(alives) do
     local coord = IDtoCoord(id)
     local x, y = coord.x * squareSize, coord.y * squareSize
+    love.graphics.setColor(math.abs(coord.x) / 50, math.abs(coord.y) / 50, 0.5, 1)
     love.graphics.rectangle("fill", x, y, squareSize, squareSize)
   end
 end
@@ -100,16 +109,15 @@ end
 function love.draw()
   love.graphics.setBackgroundColor(0.2, 0.2, 0.2)
 
-  camera:zoomTo(zoom)
-
   local cellX, cellY = mouseHoverCell()
   local mx, my = camera:mousePosition()
-  love.graphics.print(string.format("Cell (%d, %d)", cellX, cellY))
-  love.graphics.print(string.format("Mouse (%d, %d)", mx, my), 0, 20)
 
   camera:attach()
-    love.graphics.setColor(0, 0, 0, 0.5)
-    drawGrid()
+    if not play then
+      love.graphics.setColor(0, 0, 0, 0.5)
+      love.graphics.setLineWidth(zoom)
+      drawGrid()
+    end
 
     love.graphics.setColor(1, 0, 0, 0.5)
     drawCells()
@@ -121,4 +129,8 @@ function love.draw()
       squareSize, squareSize
     )
   camera:detach()
+
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.print(string.format("Cell (%d, %d)", cellX, cellY))
+  love.graphics.print(string.format("Mouse (%d, %d)", mx, my), 0, 20)
 end

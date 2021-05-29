@@ -17,8 +17,8 @@ end
 function Grid:init()
   self.gridTable = {}
   self.bounds = {
-    x = 256,
-    y = 256
+    x = 64,
+    y = 64
   }
 end
 
